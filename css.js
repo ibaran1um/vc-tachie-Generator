@@ -10,7 +10,11 @@
     blink: false,        // 点滅
     jump: false,         // 上下運動
     // ここから改良版のみ
-    direction: 'row',    // 'row' 横並び / 'column' 縦並び
+    direction: 'row',    // 'row' 横並び / 'column' 縦並び / 'free' 自由配置
+    canvasW: 1920,       // 自由配置：OBS のブラウザソースの幅
+    canvasH: 1080,       // 自由配置：OBS のブラウザソースの高さ
+    othersPlace: 'bl',   // 自由配置：登録していない人をまとめる場所 tl / tr / bl / br
+    speakFront: true,    // 自由配置：話している人を手前に出す
     gap: 0,
     padding: 16,
     maxWidth: 400,
@@ -72,6 +76,38 @@
 
   function activeUsers(users) {
     return (users || []).filter(u => u.enabled && String(u.id || '').trim() && u.stand);
+  }
+
+  const num = (v, d) => (v === '' || v === null || v === undefined || !isFinite(Number(v)) ? d : Number(v));
+
+  /* 自由配置：キャンバスの大きさ */
+  function canvasSize(opt) {
+    const o = Object.assign({}, DEFAULT_OPTIONS, opt);
+    return {
+      w: Math.min(7680, Math.max(160, Math.round(num(o.canvasW, 1920)))),
+      h: Math.min(4320, Math.max(90, Math.round(num(o.canvasH, 1080))))
+    };
+  }
+
+  /* 自由配置：各キャラクターの位置。x = 左端、y = 足元（上からの距離）。未設定なら下に均等に並べる */
+  function freeLayout(users, opt) {
+    const o = Object.assign({}, DEFAULT_OPTIONS, opt);
+    const { w, h } = canvasSize(o);
+    const list = activeUsers(users);
+    const pad = Number(o.padding) || 0;
+    const step = (w - pad * 2) / Math.max(1, list.length);
+    const map = {};
+    list.forEach((u, i) => {
+      const x = Math.round(num(u.x, pad + step * i));
+      const y = Math.round(num(u.y, h - pad));
+      map[String(u.id).trim()] = {
+        x: Math.min(w, Math.max(-2000, x)),
+        y: Math.min(h + 2000, Math.max(0, y)),
+        scale: Math.min(300, Math.max(10, num(u.scale, 100))),
+        z: Math.round(num(u.z, i + 1))
+      };
+    });
+    return map;
   }
 
   /* ---------- 互換モード：元の exe と同じ出力（発言中画像があるときだけ切り替えの行を追加） ---------- */
@@ -209,18 +245,46 @@
 
     // 並べ方（間隔をマイナスにすると重なり、話している人が手前に来る）
     L.push('/* 並べ方 */');
+    const free = o.direction === 'free';
     const col = o.direction === 'column';
     const gap = Number(o.gap) || 0;
-    L.push(`[class*="Voice_voiceStates__"] { display: flex; flex-direction: ${col ? 'column' : 'row'}; align-items: ${col ? 'flex-start' : 'flex-end'}; gap: ${Math.max(0, gap)}px; padding: ${Number(o.padding) || 0}px; margin: 0; }`);
+    const cv = canvasSize(o);
+    if (free) {
+      // 自由配置：配信画面と同じ大きさの入れ物にして、登録した人は座標で置く（登録していない人は隅にまとめる）
+      const place = String(o.othersPlace || 'bl');
+      L.push(`[class*="Voice_voiceStates__"] { position: relative; box-sizing: border-box; width: ${cv.w}px; height: ${cv.h}px; display: flex; flex-flow: row wrap; justify-content: ${place.includes('r') ? 'flex-end' : 'flex-start'}; align-content: ${place.includes('t') ? 'flex-start' : 'flex-end'}; align-items: flex-end; gap: ${Math.max(0, gap)}px; padding: ${Number(o.padding) || 0}px; margin: 0; overflow: hidden; }`);
+    } else {
+      L.push(`[class*="Voice_voiceStates__"] { display: flex; flex-direction: ${col ? 'column' : 'row'}; align-items: ${col ? 'flex-start' : 'flex-end'}; gap: ${Math.max(0, gap)}px; padding: ${Number(o.padding) || 0}px; margin: 0; }`);
+    }
     let state = `[class*="Voice_voiceState__"] { position: relative; display: flex; flex-direction: ${o.showName && o.namePos === 'above' ? 'column-reverse' : 'column'}; align-items: center; height: auto; margin: 0 !important;`;
     if (enter) state += ' animation: join-enter .5s ease-out backwards;';
     state += ' }';
     L.push(state);
-    if (gap < 0) {
+    if (gap < 0 && !free) {
       L.push(`[class*="Voice_voiceState__"] + [class*="Voice_voiceState__"] { margin-${col ? 'top' : 'left'}: ${gap}px !important; }`);
     }
     if (enter) L.push(...enter);
     L.push('');
+
+    if (free) {
+      // 足元（左下）を基準に置くので、口パク差分で画像の高さが変わっても足元はずれない
+      L.push('/* 自由配置（x = 左端、y = 足元の位置。配信画面の左上が 0, 0） */');
+      const pos = freeLayout(users, o);
+      for (const u of list) {
+        const id = String(u.id).trim();
+        const p = pos[id];
+        const name = String(u.name || '').replace(/\*\//g, '');
+        let r = `[class*="Voice_voiceState__"]:has(img[src*="avatars/${id}"]) { position: absolute; left: ${p.x}px; bottom: ${cv.h - p.y}px; z-index: ${p.z};`;
+        if (p.scale !== 100) r += ` scale: ${Math.round(p.scale) / 100};`;
+        r += ' transform-origin: 0 100%; }';
+        if (name) L.push(`/* ${name} */`);
+        L.push(r);
+      }
+      if (o.speakFront) {
+        L.push('[class*="Voice_voiceState__"]:has([class*="Voice_avatarSpeaking__"]) { z-index: 1000 !important; }');
+      }
+      L.push('');
+    }
 
     // 話していない人
     L.push('/* 話していない人 */');
@@ -386,6 +450,6 @@
   }
 
 
-  const api = { DEFAULT_OPTIONS, FONTS, generateCSS, buildUrl };
+  const api = { DEFAULT_OPTIONS, FONTS, generateCSS, buildUrl, freeLayout, canvasSize };
   window.OverlayCSS = api;
 })();

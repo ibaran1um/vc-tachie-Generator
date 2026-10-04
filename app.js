@@ -270,10 +270,52 @@
       thumbs.append(imageSlot(u, 'stand', '待機'), imageSlot(u, 'mouth', '発言中'));
 
       card.append(top, nameL, idL, thumbs);
+      if (isFree()) card.appendChild(positionFields(u));
       wrap.appendChild(card);
     }
     const bytes = state.users.reduce((s, u) => s + (u.stand || '').length + (u.mouth || '').length, 0);
     $('#sizeStat').textContent = state.users.length ? `登録 ${state.users.length} 人／画像データ合計 ${fmtKB(bytes)}` : '';
+  }
+
+  const isFree = () => state.options.mode === 'enhanced' && state.options.direction === 'free';
+
+  /* 自由配置：まだ位置がない人に、今の並び（下に均等）の位置を書き込む */
+  function fillPositions() {
+    if (!isFree()) return;
+    const pos = C.freeLayout(state.users, state.options);
+    for (const u of state.users) {
+      const p = pos[String(u.id || '').trim()];
+      if (!p) continue;
+      if (u.x === undefined || u.x === '') u.x = p.x;
+      if (u.y === undefined || u.y === '') u.y = p.y;
+      if (u.scale === undefined || u.scale === '') u.scale = p.scale;
+      if (u.z === undefined || u.z === '') u.z = p.z;
+    }
+  }
+
+  function positionFields(u) {
+    const box = document.createElement('div');
+    box.className = 'pos';
+    const pos = C.freeLayout(state.users, state.options)[String(u.id || '').trim()];
+    const defs = [
+      ['x', '横 X', 'px', 1, '立ち絵の左端の位置（配信画面の左から）'],
+      ['y', '足元 Y', 'px', 1, '立ち絵の足元の位置（配信画面の上から）'],
+      ['scale', '大きさ', '%', 5, 'この人だけの大きさ'],
+      ['z', '重なり順', '', 1, '重なったとき、数字が大きいほど手前']
+    ];
+    for (const [k, label, unit, step, tip] of defs) {
+      const l = document.createElement('label'); l.className = 'field';
+      l.title = tip;
+      l.textContent = label + (unit ? `（${unit}）` : '');
+      const inp = Object.assign(document.createElement('input'), { type: 'number', step: String(step) });
+      inp.dataset.pos = k;
+      inp.value = u[k] !== undefined && u[k] !== '' ? u[k] : (pos ? pos[k] : '');
+      if (!pos) { inp.disabled = true; inp.title = 'ID と待機画像を入れて「使う」にチェックすると設定できます'; }
+      inp.oninput = () => { u[k] = inp.value === '' ? '' : Number(inp.value); changed(false); };
+      l.appendChild(inp);
+      box.appendChild(l);
+    }
+    return box;
   }
 
   function bindUsers() {
@@ -311,14 +353,20 @@
       el.textContent = (k === 'maxHeight' && Number(o[k]) === 0) ? '制限なし' : o[k] + (UNIT[k] || '');
     });
     $('#enh').disabled = o.mode !== 'enhanced';
+    $('#freeOpts').hidden = o.direction !== 'free';
     $('#modeNote').textContent = o.mode === 'compat'
       ? '互換：以前の版と同じシンプルな CSS を出します。発言中画像には対応していますが、下の細かい設定（動き・名前など）を使うには「改良版」に切り替えてください。'
-      : '改良版：動きや名前の見た目などを細かく調整できます（「登録していない人を隠す」「話している人だけ表示」は OBS 31 以降が必要な場合があります）。';
+      : '改良版：動きや名前の見た目などを細かく調整できます（「登録していない人を隠す」「話している人だけ表示」「自由配置」は OBS 31 以降が必要な場合があります）。';
   }
 
   function bindOptions() {
     document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', () => { state.options.mode = r.value; changed(false); }));
-    document.querySelectorAll('input[name="direction"]').forEach(r => r.addEventListener('change', () => { state.options.direction = r.value; changed(false); }));
+    document.querySelectorAll('input[name="direction"]').forEach(r => r.addEventListener('change', () => {
+      const wasFree = isFree();
+      state.options.direction = r.value;
+      if (isFree() && !wasFree) $('#zoom').value = 'fit';
+      changed(true);
+    }));
     const sel = $('#nameFont');
     sel.appendChild(Object.assign(document.createElement('option'), { value: '', textContent: '標準（StreamKit のまま）' }));
     for (const f of Object.keys(C.FONTS)) sel.appendChild(Object.assign(document.createElement('option'), { value: f, textContent: f }));
@@ -326,7 +374,7 @@
       const ev = el.tagName === 'SELECT' ? 'change' : 'input';
       el.addEventListener(ev, () => {
         const k = el.dataset.opt;
-        state.options[k] = el.type === 'checkbox' ? el.checked : (el.type === 'range' ? Number(el.value) : el.value);
+        state.options[k] = el.type === 'checkbox' ? el.checked : (el.type === 'range' || el.type === 'number' ? Number(el.value) : el.value);
         changed(false);
       });
     });
@@ -364,6 +412,51 @@
     previewPeople = list.map((p, i) => Object.assign(p, { src: fakeAvatar(p.id, p.name, i) }));
   }
 
+  const PREVIEW_FREE = `
+[class*="Voice_voiceStates__"] { outline: 2px dashed rgba(255,255,255,.75); outline-offset: -1px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+img { -webkit-user-drag: none; user-select: none; }
+li.draggable { cursor: grab; touch-action: none; }
+li.dragging { cursor: grabbing; }
+li.dragging::after { content: attr(data-pos); position: absolute; left: 0; bottom: 100%; z-index: 9999; font: 600 22px/1.3 sans-serif; color: #fff; background: rgba(0,0,0,.7); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+`;
+  let suppressClick = false;
+
+  function startDrag(e, li, u) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const pos = C.freeLayout(state.users, state.options)[String(u.id).trim()];
+    const { w, h } = C.canvasSize(state.options);
+    const z = currentZoom || 1;
+    const sx = e.clientX, sy = e.clientY;
+    let moved = false, nx = pos.x, ny = pos.y;
+    li.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const dx = (ev.clientX - sx) / z, dy = (ev.clientY - sy) / z;
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+      if (!moved) { moved = true; li.classList.add('dragging'); }
+      // Shift を押しながらだと 10px 単位
+      const snap = v => (ev.shiftKey ? Math.round(v / 10) * 10 : Math.round(v));
+      nx = Math.min(w, Math.max(-2000, snap(pos.x + dx)));
+      ny = Math.min(h + 2000, Math.max(0, snap(pos.y + dy)));
+      li.style.left = nx + 'px';
+      li.style.bottom = (h - ny) + 'px';
+      li.dataset.pos = `x ${nx} / y ${ny}`;
+    };
+    const up = () => {
+      li.removeEventListener('pointermove', move);
+      li.removeEventListener('pointerup', up);
+      li.removeEventListener('pointercancel', up);
+      if (!moved) return;
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 0);
+      u.x = nx; u.y = ny;
+      changed(true);
+    };
+    li.addEventListener('pointermove', move);
+    li.addEventListener('pointerup', up);
+    li.addEventListener('pointercancel', up);
+  }
+
   function renderCSSAndPreview() {
     const css = C.generateCSS(state.users, state.options);
     lastCSS = css;
@@ -380,10 +473,18 @@
       </li>`).join('');
     // プレビューは Shadow DOM の中なので :root の代わりに :host で変数を定義する
     const previewCss = css.replace(/^:root \{/m, ':host {');
-    shadow.innerHTML = `<style>${PREVIEW_BASE}</style><style>${previewCss}</style>
+    shadow.innerHTML = `<style>${PREVIEW_BASE}</style><style>${previewCss}</style>${isFree() ? `<style>${PREVIEW_FREE}</style>` : ''}
       <div id="root"><div class="${CLS.container}"><ul class="${CLS.states}">${items}</ul></div></div>
       ${visibleNone ? '<div class="empty-msg">表示される人がいません。キャラクターを登録してチェックを入れてください。</div>' : ''}`;
+    const activeIds = new Set(state.users.filter(u => u.enabled && String(u.id || '').trim() && u.stand).map(u => String(u.id).trim()));
+    shadow.querySelectorAll('li').forEach(li => {
+      if (!isFree() || !activeIds.has(li.dataset.userid)) return;
+      const u = state.users.find(x => x.enabled && String(x.id || '').trim() === li.dataset.userid && x.stand);
+      li.classList.add('draggable');
+      li.addEventListener('pointerdown', e => startDrag(e, li, u));
+    });
     shadow.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+      if (suppressClick) return;
       if ($('#autoSpeak').checked) {
         // 自動から手動に切り替えるときは、今の状態を引き継ぐ
         manualSpeaking = new Set(Array.from(shadow.querySelectorAll('li')).filter(x => x.querySelector('img').classList.contains(CLS.speaking)).map(x => x.dataset.userid));
@@ -395,6 +496,7 @@
     }));
     applySpeaking();
     loadPreviewFont();
+    applyZoom();
   }
 
   // Shadow DOM 内の @import のフォントは使われないので、ページ側にも読み込む
@@ -428,13 +530,24 @@
   }
   $('#autoSpeak').addEventListener('change', applySpeaking);
 
-  function applyZoom() { $('#stageHost').style.zoom = $('#zoom').value; }
+  let currentZoom = 0.5;
+  function applyZoom() {
+    let z = $('#zoom').value;
+    if (z === 'fit') {
+      // 自由配置なら配信画面の幅が枠に収まる倍率、それ以外は 50%
+      const avail = $('#stage').clientWidth - 2;
+      z = isFree() ? Math.min(1, avail / C.canvasSize(state.options).w) : 0.5;
+    }
+    currentZoom = Number(z) || 1;
+    $('#stageHost').style.zoom = currentZoom;
+  }
   $('#zoom').addEventListener('change', applyZoom);
-  applyZoom();
+  window.addEventListener('resize', applyZoom);
 
   setInterval(() => { if ($('#autoSpeak').checked) { speakIndex++; applySpeaking(); } }, 1600);
 
   function changed(rerenderUsers) {
+    fillPositions();
     if (rerenderUsers) renderUsers();
     renderOptions();
     renderCSSAndPreview();

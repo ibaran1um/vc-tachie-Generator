@@ -54,7 +54,7 @@ section.panel > h2 { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
 label.field { display: flex; flex-direction: column; gap: 3px; font-size: .85rem; color: var(--muted); }
-input[type="text"], input[type="url"], select, textarea {
+input[type="text"], input[type="url"], input[type="number"], select, textarea {
   font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line);
   border-radius: 7px; padding: 6px 9px; width: 100%; min-width: 0;
 }
@@ -100,6 +100,10 @@ button.small { padding: 3px 9px; font-size: .82rem; }
 .slot .acts button { flex: 1; padding: 2px 4px; font-size: .78rem; white-space: nowrap; }
 .slot .acts button.danger { flex: 0 0 auto; padding: 2px 8px; }
 .idbad { color: var(--warn); font-size: .75rem; }
+.pos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.pos label.field { font-size: .78rem; }
+.pos input { padding: 3px 7px; font-variant-numeric: tabular-nums; }
+.free-only[hidden] { display: none; }
 .empty { color: var(--muted); padding: 18px 4px; }
 
 /* 表示設定 */
@@ -236,10 +240,22 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
             <span class="seg">
               <label><input type="radio" name="direction" value="row"><span>横</span></label>
               <label><input type="radio" name="direction" value="column"><span>縦</span></label>
+              <label><input type="radio" name="direction" value="free"><span>自由</span></label>
             </span>
           </div>
           <label class="check"><input type="checkbox" data-opt="showOthers">登録していない人も表示</label>
           <div class="row"><label class="check"><input type="checkbox" data-opt="footShadow">足元の影</label><label class="color"><input type="color" data-opt="footShadowColor">影の色</label></div>
+          <div class="free-only grid2" id="freeOpts" style="grid-column:1/-1" hidden>
+            <p class="note" style="grid-column:1/-1;margin:0">自由配置：プレビューで立ち絵をドラッグすると位置が決まります。細かい数値はキャラクターの欄でも直せます。OBS のブラウザソースの幅・高さを下と同じにしてください。</p>
+            <label class="field">配信画面の幅（px）<input type="number" data-opt="canvasW" min="160" max="7680" step="10"></label>
+            <label class="field">配信画面の高さ（px）<input type="number" data-opt="canvasH" min="90" max="4320" step="10"></label>
+            <label class="field">登録していない人をまとめる場所
+              <select data-opt="othersPlace">
+                <option value="bl">左下</option><option value="br">右下</option><option value="tl">左上</option><option value="tr">右上</option>
+              </select>
+            </label>
+            <label class="check" style="align-self:end"><input type="checkbox" data-opt="speakFront">話している人を手前に出す</label>
+          </div>
           <label class="range">間隔（マイナスで重ねる）<output data-out="gap"></output><input type="range" data-opt="gap" min="-200" max="80" step="2"></label>
           <label class="range">外側の余白<output data-out="padding"></output><input type="range" data-opt="padding" min="0" max="64" step="2"></label>
           <label class="range">立ち絵の最大幅<output data-out="maxWidth"></output><input type="range" data-opt="maxWidth" min="80" max="800" step="10"></label>
@@ -373,12 +389,12 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
           </select>
           <input type="color" id="stageColor" value="#3a5a8c" aria-label="プレビューの背景色" hidden>
           <select id="zoom" aria-label="プレビューの表示倍率" style="width:auto;padding:3px 6px;font-size:.85rem">
-            <option value="1">100%</option><option value="0.75">75%</option><option value="0.5" selected>50%</option><option value="0.33">33%</option>
+            <option value="fit">枠に合わせる</option><option value="1">100%</option><option value="0.75">75%</option><option value="0.5" selected>50%</option><option value="0.33">33%</option>
           </select>
         </span>
       </h2>
       <div class="stage" id="stage"><div id="stageHost"></div></div>
-      <p class="note">OBS に貼る CSS をそのまま見本に当てています。人をクリックすると話している状態を切り替えられます。倍率は見やすさのためだけで、CSS には影響しません。</p>
+      <p class="note">OBS に貼る CSS をそのまま見本に当てています。人をクリックすると話している状態を切り替えられます。自由配置のときは立ち絵をドラッグして動かせます（点線が配信画面の範囲）。倍率は見やすさのためだけで、CSS には影響しません。</p>
       <div class="row end" style="margin-top:12px">
         <span class="stat spacer" id="cssStat"></span>
         <button id="urlCopy2" type="button">URL をコピー</button>
