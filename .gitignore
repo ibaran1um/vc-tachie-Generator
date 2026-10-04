@@ -1,0 +1,7 @@
+# 個人データ（Discord の ID や画像を含む）
+user.js
+users.js
+overlay_builder.json
+config.json
+*.exe
+.DS_Store

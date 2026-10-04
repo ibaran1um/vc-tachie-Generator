@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VC Tachie Overlay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e9ebf2; --panel: #ffffff; --ink: #1d2130; --muted: #5d6478; --line: #d3d7e3;
+  --field: #f5f6fa; --accent: #0e7c7b; --accent-ink: #ffffff; --warn: #b5470b;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171f; --panel: #1f222d; --ink: #e7e9f1; --muted: #9aa0b4; --line: #313546;
+    --field: #171922; --accent: #3cc4bf; --accent-ink: #0c1716; --warn: #f0965a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171f; --panel: #1f222d; --ink: #e7e9f1; --muted: #9aa0b4; --line: #313546;
+  --field: #171922; --accent: #3cc4bf; --accent-ink: #0c1716; --warn: #f0965a;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  font-size: 15px; line-height: 1.6;
+}
+header { max-width: 1280px; margin: 0 auto; padding: 24px 20px 4px; }
+h1 { font-size: clamp(1.35rem, 2.6vw, 1.75rem); margin: 0; letter-spacing: .01em; }
+header p { margin: 2px 0 0; color: var(--muted); }
+main {
+  max-width: 1280px; margin: 0 auto; padding: 16px 20px 48px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start;
+}
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sticky { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } .sticky { position: static; } }
+
+section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+section.panel > h2 { font-size: 1.02rem; margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.note { color: var(--muted); font-size: .85rem; margin: 6px 0 0; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+label.field { display: flex; flex-direction: column; gap: 3px; font-size: .85rem; color: var(--muted); }
+input[type="text"], input[type="url"], select, textarea {
+  font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line);
+  border-radius: 7px; padding: 6px 9px; width: 100%; min-width: 0;
+}
+textarea { resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row.end { justify-content: flex-end; }
+.spacer { flex: 1; }
+button {
+  font: inherit; font-size: .9rem; cursor: pointer; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+button.danger:hover { border-color: var(--warn); color: var(--warn); }
+button.small { padding: 3px 9px; font-size: .82rem; }
+.url-out { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .85rem; word-break: break-all; }
+
+/* ユーザーカード */
+.users { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 10px; }
+.ucard {
+  flex: 0 0 256px; border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; background: var(--field);
+}
+.ucard.off { opacity: .62; }
+.ucard .top { display: flex; align-items: center; gap: 8px; }
+.ucard .top label { display: flex; align-items: center; gap: 6px; font-size: .88rem; font-weight: 700; }
+.ucard input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+.thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.thumb {
+  border: 1px dashed var(--line); border-radius: 8px; height: 112px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; padding: 4px; text-align: center; font-size: .75rem; color: var(--muted);
+  background-color: #9a9da6;
+  background-image: conic-gradient(#aeb1b9 25%, #8e919a 0 50%, #aeb1b9 0 75%, #8e919a 0);
+  background-size: 14px 14px;
+}
+.thumb img { max-width: 100%; max-height: 84px; object-fit: contain; }
+.thumb .cap { background: var(--panel); color: var(--ink); border-radius: 4px; padding: 0 5px; }
+.slot { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.slot .acts { display: flex; gap: 4px; }
+.slot .acts button { flex: 1; padding: 2px 4px; font-size: .78rem; white-space: nowrap; }
+.slot .acts button.danger { flex: 0 0 auto; padding: 2px 8px; }
+.idbad { color: var(--warn); font-size: .75rem; }
+.empty { color: var(--muted); padding: 18px 4px; }
+
+/* 表示設定 */
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 18px; }
+.check { display: flex; gap: 7px; align-items: center; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.range { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: .85rem; color: var(--muted); }
+.range input { grid-column: 1 / -1; accent-color: var(--accent); width: 100%; }
+.range output { font-variant-numeric: tabular-nums; color: var(--ink); }
+.color { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.color input { width: 40px; height: 28px; padding: 1px; border: 1px solid var(--line); border-radius: 6px; background: none; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.seg span { display: block; padding: 5px 14px; font-size: .88rem; }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+fieldset.enh { border: 0; padding: 0; margin: 12px 0 0; }
+fieldset.enh[disabled] { opacity: .45; }
+fieldset.enh h3 { font-size: .9rem; margin: 18px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+fieldset.enh h3:first-child { margin-top: 12px; }
+
+/* プレビュー */
+.stage {
+  border-radius: 10px; border: 1px solid var(--line); min-height: 260px; overflow: auto;
+  background-color: #8f929b;
+  background-image: conic-gradient(#a4a7af 25%, #7f828b 0 50%, #a4a7af 0 75%, #7f828b 0);
+  background-size: 22px 22px;
+  display: flex; align-items: flex-end;
+}
+.stage > div { width: 100%; }
+.stat { font-size: .82rem; color: var(--muted); }
+.howto { max-width: 1240px; margin: 14px auto 0; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 14px 18px; }
+@media (max-width: 1280px) { .howto { margin-left: 20px; margin-right: 20px; } }
+.howto h2 { font-size: 1.02rem; margin: 0 0 4px; }
+.howto ol { padding-left: 1.4em; margin: 6px 0 8px; }
+.howto li { margin: 3px 0; }
+.howto details summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.howto details p { color: var(--muted); font-size: .85rem; margin: 6px 0 0; }
+code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .88em; background: var(--field); padding: 0 4px; border-radius: 4px; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: .9rem;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>VC Tachie Overlay</h1>
+  <p>OBS のボイスチャット表示を立ち絵に差し替える、URL とカスタム CSS の作成ツールです（Discord StreamKit 用。Discord 公式のツールではありません）。データはこのブラウザの中だけに保存されます。</p>
+</header>
+
+<section class="howto" aria-labelledby="h-howto">
+  <h2 id="h-howto">使い方</h2>
+  <ol>
+    <li>下の「対象のボイスチャンネル」にサーバー ID とボイスチャンネル ID を入れ、「URL をコピー」を押します。</li>
+    <li>OBS で「ブラウザ」ソースを追加し、URL 欄に貼ります。</li>
+    <li>「キャラクター」で Discord ユーザー ID と立ち絵を登録し、「使う」にチェックを入れます。</li>
+    <li>「CSS をコピー」を押し、OBS のブラウザソースの「カスタム CSS」の中身を消して貼り付けます。</li>
+  </ol>
+  <details>
+    <summary>ID の調べ方と注意</summary>
+    <p>Discord の「ユーザー設定 → 詳細設定 → 開発者モード」をオンにすると、サーバー・チャンネル・ユーザーを右クリックして ID をコピーできます。</p>
+    <p>Discord のアイコンを設定していない人は、画像の URL に ID が含まれないため立ち絵に差し替えられません。また、Discord 側の更新で StreamKit の構造が変わると CSS が効かなくなることがあります。</p>
+  </details>
+</section>
+
+<main>
+  <div class="col">
+    <section class="panel" aria-labelledby="h-target">
+      <h2 id="h-target">対象のボイスチャンネル</h2>
+      <div class="grid2">
+        <label class="field">サーバー ID
+          <input type="text" id="guild" inputmode="numeric" autocomplete="off" placeholder="例 1353427586054754335">
+        </label>
+        <label class="field">ボイスチャンネル ID
+          <input type="text" id="channel" inputmode="numeric" autocomplete="off" placeholder="例 1439544093934882826">
+        </label>
+      </div>
+      <p class="note">Discord の開発者モードをオンにして、サーバーやチャンネルを右クリック →「ID をコピー」。ログインは不要です。</p>
+
+      <div class="row" style="margin-top:12px">
+        <label class="field" style="flex:1;min-width:180px">プロファイル
+          <select id="profile"></select>
+        </label>
+        <div class="row" style="align-self:flex-end">
+          <button id="profSave" type="button">上書き保存</button>
+          <button id="profSaveAs" type="button">名前を付けて保存</button>
+          <button id="profDel" type="button" class="danger">削除</button>
+        </div>
+      </div>
+
+      <label class="field" style="margin-top:12px">OBS に貼る URL
+        <textarea id="url" class="url-out" rows="2" readonly placeholder="サーバー ID とチャンネル ID を入れると表示されます"></textarea>
+      </label>
+      <div class="row" style="margin-top:8px">
+        <button id="urlCopy" type="button" class="primary">URL をコピー</button>
+        <button id="urlOpen" type="button">ブラウザで開く</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-users">
+      <h2 id="h-users">キャラクター
+        <span class="row">
+          <button id="userAdd" type="button" class="primary small">追加</button>
+          <button id="userClear" type="button" class="danger small">すべて削除</button>
+        </span>
+      </h2>
+      <p class="note" style="margin-top:0">チェックを入れた人だけが CSS に入ります。発言中画像は口を開けた差分など。無ければ待機画像のままです。</p>
+      <div class="users" id="users"></div>
+      <p class="stat" id="sizeStat"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-look">
+      <h2 id="h-look">表示
+        <span class="seg" role="radiogroup" aria-label="出力モード">
+          <label><input type="radio" name="mode" value="compat"><span>互換</span></label>
+          <label><input type="radio" name="mode" value="enhanced"><span>改良版</span></label>
+        </span>
+      </h2>
+      <p class="note" style="margin-top:0" id="modeNote"></p>
+      <div class="opts" style="margin-top:10px">
+        <label class="check"><input type="checkbox" data-opt="border">縁取り</label>
+        <label class="check"><input type="checkbox" data-opt="blink">点滅</label>
+        <label class="check"><input type="checkbox" data-opt="jump">上下運動</label>
+      </div>
+      <fieldset class="enh" id="enh">
+        <h3>並びと大きさ</h3>
+        <div class="opts">
+          <div class="color">並び
+            <span class="seg">
+              <label><input type="radio" name="direction" value="row"><span>横</span></label>
+              <label><input type="radio" name="direction" value="column"><span>縦</span></label>
+            </span>
+          </div>
+          <label class="check"><input type="checkbox" data-opt="showOthers">登録していない人も表示</label>
+          <div class="row"><label class="check"><input type="checkbox" data-opt="footShadow">足元の影</label><label class="color"><input type="color" data-opt="footShadowColor">影の色</label></div>
+          <label class="range">間隔（マイナスで重ねる）<output data-out="gap"></output><input type="range" data-opt="gap" min="-200" max="80" step="2"></label>
+          <label class="range">外側の余白<output data-out="padding"></output><input type="range" data-opt="padding" min="0" max="64" step="2"></label>
+          <label class="range">立ち絵の最大幅<output data-out="maxWidth"></output><input type="range" data-opt="maxWidth" min="80" max="800" step="10"></label>
+          <label class="range">立ち絵の最大高さ<output data-out="maxHeight"></output><input type="range" data-opt="maxHeight" min="0" max="1000" step="10"></label>
+        </div>
+
+        <h3>話している人</h3>
+        <div class="opts">
+          <label class="field">追加の動き
+            <select data-opt="motion">
+              <option value="none">なし</option>
+              <option value="sway">ゆらゆら（左右に傾く）</option>
+              <option value="pulse">どきどき（大きくなったり戻ったり）</option>
+              <option value="shake">ぶるぶる（細かく震える）</option>
+              <option value="squash">ぽよぽよ（伸び縮み）</option>
+              <option value="nod">うなずき</option>
+            </select>
+          </label>
+          <label class="range">動きの強さ<output data-out="motionStrength"></output><input type="range" data-opt="motionStrength" min="1" max="15" step="1"></label>
+          <label class="range">アニメの速さ（片道）<output data-out="speedMs"></output><input type="range" data-opt="speedMs" min="200" max="2000" step="50"></label>
+          <label class="range">話している間の大きさ<output data-out="speakScale"></output><input type="range" data-opt="speakScale" min="80" max="140" step="2"></label>
+          <label class="range">上下運動の高さ<output data-out="jumpHeight"></output><input type="range" data-opt="jumpHeight" min="2" max="40" step="1"></label>
+          <label class="range">縁取りの太さ<output data-out="borderWidth"></output><input type="range" data-opt="borderWidth" min="1" max="8" step="1"></label>
+          <label class="range">点滅の広がり<output data-out="glowSize"></output><input type="range" data-opt="glowSize" min="2" max="30" step="1"></label>
+          <div class="row">
+            <label class="color"><input type="color" data-opt="borderColor">縁取りの色</label>
+            <label class="color"><input type="color" data-opt="glowColor">点滅の色</label>
+          </div>
+          <label class="check"><input type="checkbox" data-opt="rainbow">縁取りを虹色に流す</label>
+        </div>
+
+        <h3>話している人のまわり</h3>
+        <div class="opts">
+          <label class="field">マーク
+            <select data-opt="mark">
+              <option value="none">なし</option>
+              <option value="talk">💬 吹き出し</option>
+              <option value="note">♪ 音符</option>
+              <option value="notes">🎵 音符（絵文字）</option>
+              <option value="bang">！ びっくり</option>
+              <option value="star">✨ きらきら</option>
+              <option value="heart">💗 ハート</option>
+              <option value="custom">好きな文字</option>
+            </select>
+          </label>
+          <label class="field">好きな文字（8 文字まで）
+            <input type="text" data-opt="markText" maxlength="8" placeholder="例 わいわい">
+          </label>
+          <label class="range">マークの大きさ<output data-out="markSize"></output><input type="range" data-opt="markSize" min="12" max="96" step="2"></label>
+          <label class="color"><input type="color" data-opt="markColor">マークの色（文字のとき）</label>
+          <label class="field">後ろの演出
+            <select data-opt="aura">
+              <option value="none">なし</option>
+              <option value="spot">スポットライト</option>
+              <option value="halo">後光（回転する光）</option>
+              <option value="ripple">波紋（広がる輪）</option>
+            </select>
+          </label>
+          <label class="color"><input type="color" data-opt="auraColor">後ろの演出の色</label>
+        </div>
+
+        <h3>話していない人</h3>
+        <div class="opts">
+          <label class="range">明るさ<output data-out="idleBrightness"></output><input type="range" data-opt="idleBrightness" min="10" max="100" step="5"></label>
+          <label class="range">不透明度<output data-out="idleOpacity"></output><input type="range" data-opt="idleOpacity" min="0" max="100" step="5"></label>
+          <label class="range">大きさ<output data-out="idleScale"></output><input type="range" data-opt="idleScale" min="60" max="100" step="2"></label>
+          <label class="check"><input type="checkbox" data-opt="idleGray">モノクロにする</label>
+          <label class="field">待っている間の動き
+            <select data-opt="idleMotion">
+              <option value="none">なし</option>
+              <option value="breath">呼吸（ゆっくり伸び縮み）</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" data-opt="speakingOnly">話している人だけ表示</label>
+        </div>
+
+        <h3>参加したとき</h3>
+        <div class="opts">
+          <label class="field">登場のしかた
+            <select data-opt="enter">
+              <option value="none">なし</option>
+              <option value="fade">ふわっと出る</option>
+              <option value="up">下から出る</option>
+              <option value="pop">ぽんっと出る</option>
+            </select>
+          </label>
+        </div>
+
+        <h3>名前</h3>
+        <div class="opts">
+          <label class="check"><input type="checkbox" data-opt="showName">名前を表示</label>
+          <label class="field">位置
+            <select data-opt="namePos">
+              <option value="below">立ち絵の下</option>
+              <option value="above">立ち絵の上</option>
+              <option value="overlay">立ち絵に重ねる</option>
+            </select>
+          </label>
+          <label class="field">フォント
+            <select data-opt="nameFont" id="nameFont"></select>
+          </label>
+          <label class="range">文字の大きさ<output data-out="nameSize"></output><input type="range" data-opt="nameSize" min="8" max="48" step="1"></label>
+          <label class="range">背景の濃さ<output data-out="nameBgOpacity"></output><input type="range" data-opt="nameBgOpacity" min="0" max="100" step="5"></label>
+          <label class="range">背景の角の丸み<output data-out="nameRadius"></output><input type="range" data-opt="nameRadius" min="0" max="24" step="1"></label>
+          <label class="check"><input type="checkbox" data-opt="nameBold">太字</label>
+          <label class="check"><input type="checkbox" data-opt="nameOutline">文字の縁取り</label>
+          <div class="row">
+            <label class="color"><input type="color" data-opt="nameColor">文字の色</label>
+            <label class="color"><input type="color" data-opt="nameBg">背景の色</label>
+            <label class="color"><input type="color" data-opt="nameOutlineColor">縁取りの色</label>
+          </div>
+          <label class="check"><input type="checkbox" data-opt="nameHighlight">話している人の名前を目立たせる</label>
+          <div class="row">
+            <label class="color"><input type="color" data-opt="nameHighlightColor">目立たせる文字の色</label>
+            <label class="color"><input type="color" data-opt="nameHighlightBg">目立たせる背景の色</label>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+
+
+  </div>
+
+  <div class="col sticky">
+    <section class="panel" aria-labelledby="h-prev">
+      <h2 id="h-prev">プレビュー
+        <span class="row">
+          <label class="check" style="font-size:.85rem;font-weight:400"><input type="checkbox" id="autoSpeak" checked>自動で話す</label>
+          <select id="stageBg" aria-label="プレビューの背景" style="width:auto;padding:3px 6px;font-size:.85rem">
+            <option value="checker">背景：透過</option><option value="#000000">背景：黒</option><option value="#ffffff">背景：白</option><option value="#00b140">背景：緑</option><option value="custom">背景：色を選ぶ</option>
+          </select>
+          <input type="color" id="stageColor" value="#3a5a8c" aria-label="プレビューの背景色" hidden>
+          <select id="zoom" aria-label="プレビューの表示倍率" style="width:auto;padding:3px 6px;font-size:.85rem">
+            <option value="1">100%</option><option value="0.75">75%</option><option value="0.5" selected>50%</option><option value="0.33">33%</option>
+          </select>
+        </span>
+      </h2>
+      <div class="stage" id="stage"><div id="stageHost"></div></div>
+      <p class="note">OBS に貼る CSS をそのまま見本に当てています。人をクリックすると話している状態を切り替えられます。倍率は見やすさのためだけで、CSS には影響しません。</p>
+      <div class="row end" style="margin-top:12px">
+        <span class="stat spacer" id="cssStat"></span>
+        <button id="urlCopy2" type="button">URL をコピー</button>
+        <button id="cssCopy" type="button" class="primary">CSS をコピー</button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="css.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
