@@ -5,7 +5,7 @@ Discord StreamKit のボイスウィジェット用の URL と、OBS の「カ�
 
 > Discord 公式のツールではなく、Discord Inc. とは関係ありません。
 
-**ツールを開く：** https://ibaran1um.github.io/vc-tachie-overlay/
+**ツールを開く：** https://ibaran1um.github.io/vc-tachie-Generator/
 
 ![画面](docs/screenshot.png)
 
