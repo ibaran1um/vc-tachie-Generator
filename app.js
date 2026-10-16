@@ -337,7 +337,7 @@
   }
 
   /* ---------- 表示設定 ---------- */
-  const UNIT = { gap: 'px', padding: 'px', maxWidth: 'px', maxHeight: 'px', idleBrightness: '%', idleOpacity: '%', idleScale: '%', speakScale: '%', borderWidth: 'px', glowSize: 'px', jumpHeight: 'px', speedMs: 'ms', motionStrength: '', nameSize: 'px', nameBgOpacity: '%', nameRadius: 'px', markSize: 'px' };
+  const UNIT = { gap: 'px', padding: 'px', maxWidth: 'px', maxHeight: 'px', idleBrightness: '%', idleOpacity: '%', idleScale: '%', speakScale: '%', borderWidth: 'px', glowSize: 'px', jumpHeight: 'px', speedMs: 'ms', motionStrength: '', nameSize: 'px', nameBgOpacity: '%', nameRadius: 'px', markSize: 'px', shapeRadius: 'px' };
 
   function renderOptions() {
     const o = state.options;

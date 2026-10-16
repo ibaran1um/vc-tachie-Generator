@@ -243,6 +243,14 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
               <label><input type="radio" name="direction" value="free"><span>自由</span></label>
             </span>
           </div>
+          <label class="field">画像の形
+            <select data-opt="shape">
+              <option value="none">切り抜かない（そのまま）</option>
+              <option value="circle">丸く切り抜く（アイコン風）</option>
+              <option value="rounded">角を丸める</option>
+            </select>
+          </label>
+          <label class="range">角の丸み（「角を丸める」のとき）<output data-out="shapeRadius"></output><input type="range" data-opt="shapeRadius" min="0" max="120" step="2"></label>
           <label class="check"><input type="checkbox" data-opt="showOthers">登録していない人も表示</label>
           <div class="row"><label class="check"><input type="checkbox" data-opt="footShadow">足元の影</label><label class="color"><input type="color" data-opt="footShadowColor">影の色</label></div>
           <div class="free-only grid2" id="freeOpts" style="grid-column:1/-1" hidden>

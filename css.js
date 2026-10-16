@@ -19,6 +19,8 @@
     padding: 16,
     maxWidth: 400,
     maxHeight: 0,        // 0 = 制限なし
+    shape: 'none',       // 画像の形 none 切り抜かない / circle 丸く切り抜く / rounded 角を丸める
+    shapeRadius: 16,     // 角を丸めるときの丸み
     borderColor: '#FFFFFF',
     borderWidth: 2,
     glowColor: '#FFFFFF',
@@ -286,6 +288,11 @@
       L.push('');
     }
 
+    // 画像の形（StreamKit は border-radius: 50% で丸く切り抜いているので、登録していない人のアイコンも含めて上書きする）
+    L.push('/* 画像の形 */');
+    const radius = o.shape === 'circle' ? '50%' : o.shape === 'rounded' ? `${Math.max(0, Number(o.shapeRadius) || 0)}px` : '0';
+    L.push(`[class*="Voice_avatar__"] { border-radius: ${radius} !important; }`, '');
+
     // 話していない人
     L.push('/* 話していない人 */');
     const idleScale = Number(o.idleScale) / 100;
@@ -427,7 +434,7 @@
       if (name) L.push(`/* ${name} */`);
       let rule = `img[src*="avatars/${id}"] { content: var(--stand-${id}); display: block; width: auto; height: auto; max-width: ${Number(o.maxWidth) || 400}px;`;
       if (Number(o.maxHeight) > 0) rule += ` max-height: ${Number(o.maxHeight)}px;`;
-      rule += ' border-radius: 0; border: none; }';
+      rule += ' border: none; }';
       L.push(rule);
       if (u.mouth) {
         L.push(`img[src*="avatars/${id}"][class*="Voice_avatarSpeaking__"] { content: var(--mouth-${id}); }`);
